@@ -1934,6 +1934,7 @@ static const struct tegra_pinctrl_soc_data tegra234_pinctrl_aon = {
 
 static int tegra234_pinctrl_probe(struct platform_device *pdev)
 {
+	pr_info("what the fuck!");
 	const struct tegra_pinctrl_soc_data *soc = device_get_match_data(&pdev->dev);
 
 	return tegra_pinctrl_probe(pdev, soc);

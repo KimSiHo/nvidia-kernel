@@ -74,33 +74,57 @@ static int bh1750_change_int_time(struct bh1750_data *data, int usec)
 	u8 regval;
 	const struct bh1750_chip_info *chip_info = data->chip_info;
 
-	if ((usec % chip_info->mtreg_to_usec) != 0)
+	pr_info("bh1750: >>> enter bh1750_change_int_time(), usec=%d\n", usec);
+
+	if ((usec % chip_info->mtreg_to_usec) != 0) {
+		pr_err("bh1750: invalid usec value (%d) not multiple of %d\n",
+		       usec, chip_info->mtreg_to_usec);
 		return -EINVAL;
+	}
 
 	val = usec / chip_info->mtreg_to_usec;
-	if (val < chip_info->mtreg_min || val > chip_info->mtreg_max)
-		return -EINVAL;
+	pr_info("bh1750: computed mtreg val=%u (min=%u, max=%u)\n",
+		val, chip_info->mtreg_min, chip_info->mtreg_max);
 
+	if (val < chip_info->mtreg_min || val > chip_info->mtreg_max) {
+		pr_err("bh1750: mtreg value out of range\n");
+		return -EINVAL;
+	}
+
+	pr_info("bh1750: sending POWER_DOWN command\n");
 	ret = i2c_smbus_write_byte(data->client, BH1750_POWER_DOWN);
-	if (ret < 0)
+	pr_info("bh1750: POWER_DOWN ret=%d\n", ret);
+	if (ret < 0) {
+		pr_err("bh1750: i2c_smbus_write_byte(POWER_DOWN) failed=%d\n", ret);
 		return ret;
+	}
 
 	regval = (val & chip_info->int_time_high_mask) >> 5;
+	pr_info("bh1750: writing high bits regval=0x%02x\n", regval);
 	ret = i2c_smbus_write_byte(data->client,
 				   BH1750_CHANGE_INT_TIME_H_BIT | regval);
-	if (ret < 0)
+	pr_info("bh1750: write high bits ret=%d\n", ret);
+	if (ret < 0) {
+		pr_err("bh1750: write high bits failed=%d\n", ret);
 		return ret;
+	}
 
 	regval = val & chip_info->int_time_low_mask;
+	pr_info("bh1750: writing low bits regval=0x%02x\n", regval);
 	ret = i2c_smbus_write_byte(data->client,
 				   BH1750_CHANGE_INT_TIME_L_BIT | regval);
-	if (ret < 0)
+	pr_info("bh1750: write low bits ret=%d\n", ret);
+	if (ret < 0) {
+		pr_err("bh1750: write low bits failed=%d\n", ret);
 		return ret;
+	}
 
 	data->mtreg = val;
+	pr_info("bh1750: integration time successfully changed (mtreg=%u)\n", val);
 
 	return 0;
 }
+
 
 static int bh1750_read(struct bh1750_data *data, int *val)
 {
@@ -234,11 +258,20 @@ static int bh1750_probe(struct i2c_client *client,
 	int ret, usec;
 	struct bh1750_data *data;
 	struct iio_dev *indio_dev;
+	pr_info("what the fuck!!!!");
+	pr_info("hhhhhhhhii~~!!\n");
+	dev_info(&client->dev, "addr = 0x%02x, adapter = %s\n",
+		 client->addr, client->adapter->name);
+	pr_info("bh1750: matched device_id name='%s', driver_data=%lu\n",
+			id->name, id->driver_data);
+
+	pr_info("1111111111111\n");
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C |
 				I2C_FUNC_SMBUS_WRITE_BYTE))
 		return -EOPNOTSUPP;
 
+	pr_info("2222222222222\n");
 	indio_dev = devm_iio_device_alloc(&client->dev, sizeof(*data));
 	if (!indio_dev)
 		return -ENOMEM;
@@ -248,11 +281,16 @@ static int bh1750_probe(struct i2c_client *client,
 	data->client = client;
 	data->chip_info = &bh1750_chip_info_tbl[id->driver_data];
 
+	pr_info("333333333333333\n");
 	usec = data->chip_info->mtreg_to_usec * data->chip_info->mtreg_default;
+	pr_info("4444444\n");
+
 	ret = bh1750_change_int_time(data, usec);
+	pr_info("66666666666 %d\n", ret);
 	if (ret < 0)
 		return ret;
 
+	pr_info("55555\n");
 	mutex_init(&data->lock);
 	indio_dev->info = &bh1750_info;
 	indio_dev->name = id->name;
@@ -260,6 +298,7 @@ static int bh1750_probe(struct i2c_client *client,
 	indio_dev->num_channels = ARRAY_SIZE(bh1750_channels);
 	indio_dev->modes = INDIO_DIRECT_MODE;
 
+	pr_info("444444444444444\n");
 	return iio_device_register(indio_dev);
 }
 

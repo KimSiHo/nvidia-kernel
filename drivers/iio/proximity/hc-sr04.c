@@ -78,8 +78,6 @@ static const struct srf04_cfg mb_lv_cfg = {
 
 static irqreturn_t srf04_handle_irq(int irq, void *dev_id)
 {
-	pr_info("srf04 handle irq~~~~~~~~~~`\n");
-
 	struct iio_dev *indio_dev = dev_id;
 	struct srf04_data *data = iio_priv(indio_dev);
 	ktime_t now = ktime_get();
@@ -92,8 +90,6 @@ static irqreturn_t srf04_handle_irq(int irq, void *dev_id)
 		complete(&data->falling);
 	}
 
-	pr_info("srf04 handle irq!!!\n");
-
 	return IRQ_HANDLED;
 }
 
@@ -103,51 +99,12 @@ static int srf04_read(struct srf04_data *data)
 	ktime_t ktime_dt;
 	u64 dt_ns;
 	u32 time_ns, distance_mm;
-	pr_info("srf04 333333333333333~~~~@@@@\n");
-
-	/*pr_info("==== srf04_data debug dump ====\n");
-	pr_info("dev: %p\n", data->dev);
-	pr_info("gpiod_trig: %p\n", data->gpiod_trig);
-	pr_info("gpiod_echo: %p\n", data->gpiod_echo);
-	pr_info("gpiod_power: %p\n", data->gpiod_power);
-	pr_info("lock (mutex): %p\n", &data->lock);
-	pr_info("irqnr: %d\n", data->irqnr);
-	pr_info("ts_rising: %lld\n", ktime_to_ns(data->ts_rising));
-	pr_info("ts_falling: %lld\n", ktime_to_ns(data->ts_falling));
-	pr_info("rising completion: %d\n", completion_done(&data->rising));
-	pr_info("falling completion: %d\n", completion_done(&data->falling));
-	pr_info("cfg: %p\n", data->cfg);
-	pr_info("startup_time_ms: %d\n", data->startup_time_ms);
-	pr_info("===============================\n");
-
-
-	struct gpio_desc *desc = data->gpiod_trig;
-
-	if (desc) {
-		pr_info("GlobalNum  : %d\n", desc_to_gpio(desc));
-
-		int dir = gpiod_get_direction(desc);
-		int val = gpiod_get_value(desc);
-
-		pr_info("=== GPIO Descriptor Info ===\n");
-		pr_info("Direction  : %s\n", dir == 0 ? "out" :
-			(dir == 1 ? "in" : "unknown"));
-		pr_info("Value      : %d\n", val);
-		pr_info("ActiveLow  : %d\n", gpiod_is_active_low(desc));
-		pr_info("Cansleep   : %d\n", gpiod_cansleep(desc));
-	}*/
-
-	//list_for_each_entry(gdev, &gpio_devices, list) {
-
 
 	if (data->gpiod_power) {
 		ret = pm_runtime_resume_and_get(data->dev);
 		if (ret < 0)
 			return ret;
 	}
-
-	pr_info("srf04 44444444444\n");
-
 	/*
 	 * just one read-echo-cycle can take place at a time
 	 * ==> lock against concurrent reading calls
@@ -158,43 +115,24 @@ static int srf04_read(struct srf04_data *data)
 	reinit_completion(&data->falling);
 
 	gpiod_set_value(data->gpiod_trig, 1);
-	//int val = gpiod_get_value(desc);
-	//pr_info("Value      : %d\n", val);
-	//udelay(data->cfg->trigger_pulse_us);
-	udelay(50);
+	udelay(data->cfg->trigger_pulse_us);
 	gpiod_set_value(data->gpiod_trig, 0);
-	//val = gpiod_get_value(desc);
-	//pr_info("Value      : %d\n", val);
 
-	int i;
-	for (i = 0; i < 2000; i++) {
-		pr_info("%d\n", i);
-		if (gpiod_get_value(data->gpiod_echo))
-			pr_info("Echo HIGH detected at %d us\n", i);
-		udelay(500);
-	}
-
-	pr_info("srf04 55555555555~~~~~~~~~~~~~~~~\n");
 	if (data->gpiod_power) {
 		pm_runtime_mark_last_busy(data->dev);
 		pm_runtime_put_autosuspend(data->dev);
 	}
 
 	/* it should not take more than 20 ms until echo is rising */
-	pr_info("srf04 10101010101010!!!!!!!!!!!!!!!!\n");
 	ret = wait_for_completion_killable_timeout(&data->rising, HZ/50);
-	pr_info("wait_for_completion_killable_timeout ret = %d\n", ret);
 	if (ret < 0) {
-		pr_info("srf04 101010101010101111111111!!!!!!!!!!!!!!!!\n");
 		mutex_unlock(&data->lock);
 		return ret;
 	} else if (ret == 0) {
-		pr_info("srf04 101010101010102222222222222!!!!!!!!!!!!!!!!\n");
 		mutex_unlock(&data->lock);
 		return -ETIMEDOUT;
 	}
 
-	pr_info("srf04 666666666666\n");
 	/* it cannot take more than 50 ms until echo is falling */
 	ret = wait_for_completion_killable_timeout(&data->falling, HZ/20);
 	if (ret < 0) {
@@ -205,7 +143,6 @@ static int srf04_read(struct srf04_data *data)
 		return -ETIMEDOUT;
 	}
 
-	pr_info("srf04 77777777777\n");
 	ktime_dt = ktime_sub(data->ts_falling, data->ts_rising);
 
 	mutex_unlock(&data->lock);
@@ -224,8 +161,6 @@ static int srf04_read(struct srf04_data *data)
 	 *
 	 * using a minimum speed at -20 °C of 319 m/s
 	 */
-
-	pr_info("srf04 888888888888\n");
 	if (dt_ns > 40438871)
 		return -EIO;
 
@@ -251,8 +186,6 @@ static int srf04_read(struct srf04_data *data)
 	 * because we limit to 6,45 meters the multiplication with 106 just
 	 * fits into 32 bit
 	 */
-
-	pr_info("srf04 99999999999\n");
 	distance_mm = time_ns * 106 / 617176;
 
 	return distance_mm;
@@ -265,21 +198,17 @@ static int srf04_read_raw(struct iio_dev *indio_dev,
 	struct srf04_data *data = iio_priv(indio_dev);
 	int ret;
 
-	pr_info("srf04 it is called!\n");
-
 	if (channel->type != IIO_DISTANCE)
 		return -EINVAL;
 
 	switch (info) {
 	case IIO_CHAN_INFO_RAW:
-		pr_info("srf04 hooooooooo\n");
 		ret = srf04_read(data);
 		if (ret < 0)
 			return ret;
 		*val = ret;
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SCALE:
-		pr_info("srf04 huuuuuuuuuuuuu\n");
 		/*
 		 * theoretical maximum resolution is 3 mm
 		 * 1 LSB is 1 mm
@@ -324,7 +253,6 @@ static int srf04_probe(struct platform_device *pdev)
 	struct iio_dev *indio_dev;
 	int ret;
 
-	dev_info(dev, "hiiiii..????????????????????\n");
 	indio_dev = devm_iio_device_alloc(dev, sizeof(struct srf04_data));
 	if (!indio_dev) {
 		dev_err(dev, "failed to allocate IIO device\n");
@@ -339,7 +267,6 @@ static int srf04_probe(struct platform_device *pdev)
 	init_completion(&data->rising);
 	init_completion(&data->falling);
 
-	dev_info(dev, "22222222\n");
 	data->gpiod_trig = devm_gpiod_get(dev, "trig", GPIOD_OUT_LOW);
 	if (IS_ERR(data->gpiod_trig)) {
 		dev_err(dev, "failed to get trig-gpios: err=%ld\n",
@@ -353,8 +280,6 @@ static int srf04_probe(struct platform_device *pdev)
 					PTR_ERR(data->gpiod_echo));
 		return PTR_ERR(data->gpiod_echo);
 	}
-
-	dev_info(dev, "333333333\n");
 
 	data->gpiod_power = devm_gpiod_get_optional(dev, "power",
 								GPIOD_OUT_LOW);
@@ -419,7 +344,6 @@ static int srf04_probe(struct platform_device *pdev)
 		pm_runtime_idle(data->dev);
 	}
 
-	dev_info(dev, "success..\n");
 	return ret;
 }
 

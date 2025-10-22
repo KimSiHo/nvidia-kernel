@@ -935,6 +935,7 @@ static void __init print_unknown_bootoptions(void)
 
 asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
 {
+	pr_info(">>>> My Custom Kernel is Booting! <<<<\n");
 	char *command_line;
 	char *after_dashes;
 
